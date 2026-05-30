@@ -1,0 +1,4 @@
+# Requires Python 3.12 (amazon-braket-sdk incompatible with Python 3.14+)
+# Install in: C:\braket_venv  (python3.12 -m venv C:\braket_venv)
+amazon-braket-sdk==1.88.0
+numpy==1.26.4

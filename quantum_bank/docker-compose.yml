@@ -1,0 +1,55 @@
+services:
+
+  # ── PostgreSQL — stores accounts and encrypted transactions ────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: quantumbank_db
+    environment:
+      POSTGRES_DB: quantum_bank
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d quantum_bank"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── QKD Service — BB84 quantum key distribution (Qiskit + AerSimulator) ───
+  qkd_service:
+    build: ./qkd_service
+    container_name: quantumbank_qkd
+    ports:
+      - "8001:8001"
+    volumes:
+      - qkd_data:/app   # persists qkd_sessions.db between restarts
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Transaction Service — REST API + AES-256-GCM encryption ───────────────
+  transaction_service:
+    build: ./transaction_service
+    container_name: quantumbank_txn
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://admin:admin123@db:5432/quantum_bank
+      QKD_SERVICE_URL: http://qkd_service:8001
+    depends_on:
+      db:
+        condition: service_healthy
+      qkd_service:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  qkd_data:

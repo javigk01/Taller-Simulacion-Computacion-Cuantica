@@ -1,0 +1,153 @@
+{
+  "info": {
+    "name": "QuantumBank — Microservices",
+    "description": "Sistema bancario quantum-safe con 2 microservicios:\n- Transaction Service (puerto 8000)\n- QKD Service BB84 (puerto 8001)\n\nDespliegue: cd quantum_bank && docker compose up -d --build",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "txn_url", "value": "http://localhost:8000", "type": "string" },
+    { "key": "qkd_url", "value": "http://localhost:8001", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1 — Health Checks",
+      "item": [
+        {
+          "name": "Transaction Service — health",
+          "request": { "method": "GET", "url": "{{txn_url}}/health" }
+        },
+        {
+          "name": "QKD Service — health",
+          "request": { "method": "GET", "url": "{{qkd_url}}/health" }
+        }
+      ]
+    },
+    {
+      "name": "2 — Cuentas (Transaction Service)",
+      "item": [
+        {
+          "name": "Crear Cuenta — Ana García",
+          "request": {
+            "method": "POST", "url": "{{txn_url}}/cuentas/",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"titular\": \"Ana García\",\n  \"saldo_inicial\": 5000000\n}" }
+          }
+        },
+        {
+          "name": "Crear Cuenta — Carlos López",
+          "request": {
+            "method": "POST", "url": "{{txn_url}}/cuentas/",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"titular\": \"Carlos López\",\n  \"saldo_inicial\": 1000000\n}" }
+          }
+        },
+        {
+          "name": "Listar Cuentas",
+          "request": { "method": "GET", "url": "{{txn_url}}/cuentas/" }
+        },
+        {
+          "name": "Obtener Cuenta 1",
+          "request": { "method": "GET", "url": "{{txn_url}}/cuentas/1" }
+        },
+        {
+          "name": "Actualizar Cuenta 1",
+          "request": {
+            "method": "PUT", "url": "{{txn_url}}/cuentas/1",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"titular\": \"Ana María García\"\n}" }
+          }
+        },
+        {
+          "name": "Desactivar Cuenta 2 (soft delete)",
+          "request": { "method": "DELETE", "url": "{{txn_url}}/cuentas/2" }
+        }
+      ]
+    },
+    {
+      "name": "3 — Transacciones con Criptografía Cuántica ★",
+      "item": [
+        {
+          "name": "Crear Transacción (BB84 + AES-256-GCM) ★",
+          "request": {
+            "method": "POST", "url": "{{txn_url}}/transacciones/",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuenta_origen_id\": 1,\n  \"cuenta_destino_id\": 2,\n  \"monto\": 250000,\n  \"concepto\": \"Pago cuota universitaria\"\n}"
+            },
+            "description": "1. Llama al QKD Service → BB84 genera clave 128-bit\n2. Cifra payload con AES-256-GCM\n3. Almacena ciphertext + qkd_session_id (no la clave)\n4. Transfiere saldo"
+          }
+        },
+        {
+          "name": "Ver Transacción (payload cifrado)",
+          "request": {
+            "method": "GET", "url": "{{txn_url}}/transacciones/1",
+            "description": "Muestra el payload_cifrado (hex) — ilegible sin la clave cuántica"
+          }
+        },
+        {
+          "name": "Descifrar Transacción ★",
+          "request": {
+            "method": "GET", "url": "{{txn_url}}/transacciones/1/descifrar",
+            "description": "1. Recupera clave del QKD Service usando qkd_session_id\n2. Descifra AES-256-GCM\n3. Muestra: monto, concepto, cuentas"
+          }
+        },
+        {
+          "name": "Listar Transacciones",
+          "request": { "method": "GET", "url": "{{txn_url}}/transacciones/" }
+        }
+      ]
+    },
+    {
+      "name": "4 — QKD Service (protocolo BB84) ★",
+      "item": [
+        {
+          "name": "Solicitar Clave BB84 (canal seguro)",
+          "request": {
+            "method": "POST", "url": "{{qkd_url}}/session-key",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"demo_client\",\n  \"n_bits\": 128,\n  \"simular_espia\": false\n}"
+            },
+            "description": "QBER ≈ 0% → seguro: true → clave_hex retornada"
+          }
+        },
+        {
+          "name": "Solicitar Clave BB84 CON ESPÍA ★",
+          "request": {
+            "method": "POST", "url": "{{qkd_url}}/session-key",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"demo_client\",\n  \"n_bits\": 128,\n  \"simular_espia\": true,\n  \"intercept_prob\": 1.0\n}"
+            },
+            "description": "Eve intercepta todos los qubits → QBER ≈ 25% → seguro: false → clave_hex: null → CLAVE DESCARTADA"
+          }
+        },
+        {
+          "name": "Demo Comparativa: sin espía vs con espía ★★",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{qkd_url}}/demo/eavesdrop-compare?n_bits=64",
+              "query": [{ "key": "n_bits", "value": "64" }]
+            },
+            "description": "Ejecuta BB84 dos veces en paralelo:\n- sin_espia: QBER≈0%, seguro\n- con_espia: QBER≈25%, espia_detectado=true\n\n¡Ideal para la presentación!"
+          }
+        },
+        {
+          "name": "Listar Sesiones QKD",
+          "request": { "method": "GET", "url": "{{qkd_url}}/sessions" }
+        },
+        {
+          "name": "Ver Metadatos de Sesión (sin clave)",
+          "request": {
+            "method": "GET", "url": "{{qkd_url}}/session-key/REPLACE_WITH_SESSION_ID",
+            "description": "Devuelve metadatos: QBER, entropía, sifted_ratio — sin clave_hex"
+          }
+        }
+      ]
+    }
+  ]
+}
