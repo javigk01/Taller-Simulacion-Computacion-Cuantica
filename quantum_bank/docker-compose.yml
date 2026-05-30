@@ -50,6 +50,20 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ── Frontend — React + Vite + Tailwind ────────────────────────────────────
+  frontend:
+    build: ./frontend
+    container_name: quantumbank_ui
+    ports:
+      - "3000:3000"
+    environment:
+      TXN_URL: http://transaction_service:8000
+      QKD_URL: http://qkd_service:8001
+    depends_on:
+      - transaction_service
+      - qkd_service
+    restart: unless-stopped
+
 volumes:
   pgdata:
   qkd_data:
