@@ -233,11 +233,15 @@ docker compose down -v --rmi all
 
 ### Opción A — Interfaz gráfica (http://localhost:3000)
 
-1. **Cuentas** → crear dos cuentas con saldo inicial
-2. **Transferencias** → hacer una transferencia y ver la animación del protocolo BB84
-3. **Transferencias** → clic en "🔓 Descifrar" para ver los datos en claro
-4. **QKD Lab** → "Generar Clave BB84" y revisar métricas (QBER, entropía)
-5. **QKD Lab** → "🕵️ Lanzar ataque de Eve" para ver la detección del espía
+1. **Cuentas** → crear dos o más cuentas con saldo inicial
+2. **Transferencias** → hacer una transferencia y observar la animación paso a paso del protocolo BB84
+3. **Transferencias** → clic en "🔓 Descifrar" para ver los datos en claro (AES-256-GCM)
+4. **Transferencias** → clic en "✏️" para modificar la transacción (origen, destino, monto o concepto) — los saldos se ajustan automáticamente
+5. **Transferencias** → clic en "↩️" para eliminar la transacción y ver cómo se devuelve el saldo
+6. **Cuentas** → desactivar una cuenta con "⏸ Desactivar", luego reactivarla con "▶️ Reactivar"
+7. **Cuentas** → eliminar permanentemente una cuenta con "💀 Eliminar permanentemente" y verificar que sus transacciones aparecen con el badge "🔒 solo lectura"
+8. **QKD Lab** → "Generar Clave BB84" y revisar métricas (QBER, entropía, sifted ratio)
+9. **QKD Lab** → "🕵️ Lanzar ataque de Eve" para ver la comparativa de detección del espía
 
 ### Opción B — Postman
 
@@ -277,17 +281,44 @@ curl -X POST "http://localhost:8001/demo/eavesdrop-compare?n_bits=64"
 
 ### Transaction Service — http://localhost:8000
 
+#### Cuentas
+
 | Método | Endpoint | Descripción |
 |---|---|---|
-| GET | `/cuentas/` | Listar todas las cuentas |
+| GET | `/cuentas/` | Listar todas las cuentas (incluye ELIMINADAS) |
 | POST | `/cuentas/` | Crear cuenta |
 | GET | `/cuentas/{id}` | Obtener cuenta por ID |
-| PUT | `/cuentas/{id}` | Actualizar titular o estado |
-| DELETE | `/cuentas/{id}` | Desactivar cuenta (soft delete) |
+| PUT | `/cuentas/{id}` | Actualizar titular · enviar `{"estado":"ACTIVA"}` para reactivar |
+| DELETE | `/cuentas/{id}` | Desactivar cuenta (ACTIVA → INACTIVA, reversible) |
+| **DELETE** | **`/cuentas/{id}/permanente`** | **Eliminar permanentemente (→ ELIMINADA, conserva historial)** |
+
+**Ciclo de vida de una cuenta:**
+```
+Crear → ACTIVA ──── Desactivar ──→ INACTIVA ──── Reactivar ──→ ACTIVA
+                        │                              │
+                        └─── Eliminar permanente ──────┘
+                                      ↓
+                                  ELIMINADA  (solo lectura, no reversible)
+```
+
+#### Transacciones
+
+| Método | Endpoint | Descripción |
+|---|---|---|
 | GET | `/transacciones/` | Listar transacciones |
 | **POST** | **`/transacciones/`** | **Crear transferencia — activa BB84 + AES-GCM** |
 | GET | `/transacciones/{id}` | Ver transacción (payload cifrado) |
+| **PUT** | **`/transacciones/{id}`** | **Modificar — ajusta saldos automáticamente** |
 | GET | `/transacciones/{id}/descifrar` | Descifrar payload con clave del QKD Service |
+| DELETE | `/transacciones/{id}` | Eliminar (ver reglas abajo) |
+
+**Reglas de modificación y eliminación de transacciones:**
+
+| Estado de las cuentas | PUT (modificar) | DELETE (eliminar) |
+|---|---|---|
+| Ambas cuentas existen | ✅ Revierte saldo original, aplica nuevo | ✅ Devuelve saldo a origen |
+| Una cuenta eliminada | ❌ 403 — transacción de solo lectura | ❌ 400 — estados inconsistentes |
+| Ambas cuentas eliminadas | ❌ 403 — transacción de solo lectura | ✅ Elimina sin revertir saldo |
 
 ### QKD Service — http://localhost:8001
 

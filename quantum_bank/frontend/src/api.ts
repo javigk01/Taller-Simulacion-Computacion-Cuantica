@@ -5,7 +5,7 @@ export interface Cuenta {
   numero_cuenta: string
   titular: string
   saldo: number
-  estado: 'ACTIVA' | 'INACTIVA'
+  estado: 'ACTIVA' | 'INACTIVA' | 'ELIMINADA'
   creado_en: string
 }
 
@@ -80,8 +80,23 @@ export const createCuenta = (titular: string, saldo_inicial: number) =>
     body: JSON.stringify({ titular, saldo_inicial }),
   })
 
+export const updateCuenta = (id: number, titular: string) =>
+  req<Cuenta>(`/api/txn/cuentas/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ titular }),
+  })
+
+export const reactivateCuenta = (id: number) =>
+  req<Cuenta>(`/api/txn/cuentas/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ estado: 'ACTIVA' }),
+  })
+
 export const deactivateCuenta = (id: number) =>
   req<void>(`/api/txn/cuentas/${id}`, { method: 'DELETE' })
+
+export const permanentDeleteCuenta = (id: number) =>
+  req<void>(`/api/txn/cuentas/${id}/permanente`, { method: 'DELETE' })
 
 // ── Transacciones ─────────────────────────────────────────────────────────────
 
@@ -98,6 +113,18 @@ export const createTransaccion = (
     method: 'POST',
     body: JSON.stringify({ cuenta_origen_id, cuenta_destino_id, monto, concepto }),
   })
+
+export const updateTransaccion = (
+  id: number,
+  data: { cuenta_origen_id?: number; cuenta_destino_id?: number; monto?: number; concepto?: string },
+) =>
+  req<Transaccion>(`/api/txn/transacciones/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+
+export const deleteTransaccion = (id: number) =>
+  req<void>(`/api/txn/transacciones/${id}`, { method: 'DELETE' })
 
 export const descifrarTransaccion = (id: number) =>
   req<TransaccionDecifrada>(`/api/txn/transacciones/${id}/descifrar`)

@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -11,6 +11,7 @@ from app.database import Base
 class EstadoCuenta(str, enum.Enum):
     ACTIVA = "ACTIVA"
     INACTIVA = "INACTIVA"
+    ELIMINADA = "ELIMINADA"
 
 
 class EstadoTransaccion(str, enum.Enum):
@@ -26,11 +27,8 @@ class Cuenta(Base):
     numero_cuenta = Column(String(20), unique=True, nullable=False, index=True)
     titular = Column(String(100), nullable=False)
     saldo = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
-    estado = Column(
-        Enum(EstadoCuenta, name="estadocuenta"),
-        default=EstadoCuenta.ACTIVA,
-        nullable=False,
-    )
+    # String instead of PostgreSQL Enum so adding new states never requires a migration
+    estado = Column(String(20), default=EstadoCuenta.ACTIVA, nullable=False)
     creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     transacciones_origen = relationship(
@@ -59,11 +57,7 @@ class Transaccion(Base):
     # The actual key lives in the QKD Service — we never persist it here.
     qkd_session_id = Column(String(36), nullable=True, index=True)
 
-    estado = Column(
-        Enum(EstadoTransaccion, name="estadotransaccion"),
-        default=EstadoTransaccion.PENDIENTE,
-        nullable=False,
-    )
+    estado = Column(String(20), default=EstadoTransaccion.PENDIENTE, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     cuenta_origen = relationship(

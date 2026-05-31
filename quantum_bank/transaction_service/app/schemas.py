@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class EstadoCuentaEnum(str, Enum):
     ACTIVA = "ACTIVA"
     INACTIVA = "INACTIVA"
+    ELIMINADA = "ELIMINADA"
 
 
 # ── Cuenta ────────────────────────────────────────────────────────────────────
@@ -61,6 +62,13 @@ class TransaccionResponse(BaseModel):
     qkd_session_id: Optional[str]
     estado: str
     timestamp: datetime
+
+
+class TransaccionUpdate(BaseModel):
+    cuenta_origen_id: Optional[int] = None
+    cuenta_destino_id: Optional[int] = None
+    monto: Optional[Decimal] = Field(None, gt=0, examples=[300000.00])
+    concepto: Optional[str] = Field(None, min_length=3, max_length=200)
 
 
 class TransaccionDecifrada(TransaccionResponse):
